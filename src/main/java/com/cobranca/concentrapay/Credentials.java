@@ -1,17 +1,21 @@
 package com.cobranca.concentrapay;
 
+import lombok.Data;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
 import java.io.IOException;
 import java.io.InputStream;
 
+@Data
 public class Credentials {
 	private String clientId;
 	private String clientSecret;
 	private String certificate;
 	private boolean sandbox;
 	private boolean debug;
+
+	private String chave;
 
 	public Credentials() {
 		ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
@@ -29,26 +33,6 @@ public class Credentials {
 		this.certificate = credentials.getString("certificate");
 		this.sandbox = credentials.getBoolean("sandbox");
 		this.debug = credentials.getBoolean("debug");
+		this.chave = credentials.getString("chave");
 	}
-
-	public String getClientId() {
-		return clientId;
-	}
-
-	public String getClientSecret() {
-		return clientSecret;
-	}
-
-	public String getCertificate() {
-		return certificate;
-	}
-
-	public boolean isSandbox() {
-		return sandbox;
-	}
-
-	public boolean isDebug() {
-		return debug;
-	}
-
 }

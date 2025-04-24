@@ -1,11 +1,10 @@
 package com.cobranca.concentrapay.dto;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
 
-@Getter
-@Setter
+@Data
 public class Devedor {
     private String cnpj;
+    private String cpf;
     private String nome;
 }

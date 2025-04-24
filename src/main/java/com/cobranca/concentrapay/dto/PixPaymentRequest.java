@@ -9,7 +9,6 @@ import java.util.List;
 @Setter
 public class PixPaymentRequest {
 
-    private Calendario calendario;
     private Devedor devedor;
     private Valor valor;
     private String chave;
