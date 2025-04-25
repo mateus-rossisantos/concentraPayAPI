@@ -15,8 +15,8 @@ public class PaymentController {
     private PaymentService paymentService;
 
     @PostMapping("/pix")
-    public PixPaymentResponse payWithPix(@RequestBody PixPaymentRequest request) {
-        return paymentService.processPixPayment(request);
+    public PixPaymentResponse createPixPayment(@RequestBody PixPaymentRequest request) {
+        return paymentService.createPixPayment(request);
     }
 
 

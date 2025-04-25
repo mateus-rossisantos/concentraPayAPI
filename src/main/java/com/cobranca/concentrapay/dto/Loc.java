@@ -7,4 +7,5 @@ public class Loc {
     private int id;
     private String location;
     private String tipoCob;
+    private String criacao;
 }

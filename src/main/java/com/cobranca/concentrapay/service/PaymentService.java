@@ -17,7 +17,7 @@ import java.util.HashMap;
 @Slf4j
 public class PaymentService {
 
-    public PixPaymentResponse processPixPayment(PixPaymentRequest request) {
+    public PixPaymentResponse createPixPayment(PixPaymentRequest request) {
         Credentials credentials = new Credentials();
 
         JSONObject options = new JSONObject();
@@ -29,15 +29,9 @@ public class PaymentService {
 
         JSONObject body = new JSONObject();
         body.put("calendario", new JSONObject().put("expiracao", 3600));
-        body.put("devedor", new JSONObject().put("cpf", "12345678909").put("nome", "Francisco da Silva"));
         body.put("valor", new JSONObject().put("original", request.getValor().getOriginal()));
         body.put("chave", credentials.getChave());
-        body.put("solicitacaoPagador", "Serviço realizado.");
-
-//        JSONArray infoAdicionais = new JSONArray();
-//        infoAdicionais.put(new JSONObject().put("nome", "Campo 1").put("valor", "Informação Adicional1 do PSP-Recebedor"));
-//        infoAdicionais.put(new JSONObject().put("nome", "Campo 2").put("valor", "Informação Adicional2 do PSP-Recebedor"));
-//        body.put("infoAdicionais", infoAdicionais);
+        body.put("solicitacaoPagador", request.getSolicitacaoPagador());
 
         try {
             EfiPay efi = new EfiPay(options);
