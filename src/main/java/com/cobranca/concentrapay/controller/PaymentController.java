@@ -19,5 +19,12 @@ public class PaymentController {
         return paymentService.createPixPayment(request);
     }
 
+    @GetMapping("/pix/{txid}")
+    public PixPaymentResponse getPixInfo(@PathVariable String txid) {
+        return paymentService.getPixInfo(txid);
+    }
+
+
+
 
 }
