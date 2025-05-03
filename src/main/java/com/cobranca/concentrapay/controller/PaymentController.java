@@ -1,7 +1,7 @@
 package com.cobranca.concentrapay.controller;
 
-import com.cobranca.concentrapay.dto.PixPaymentRequest;
-import com.cobranca.concentrapay.dto.PixPaymentResponse;
+import com.cobranca.concentrapay.dto.request.PixPaymentRequest;
+import com.cobranca.concentrapay.dto.response.PixPaymentResponse;
 import com.cobranca.concentrapay.service.PaymentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;

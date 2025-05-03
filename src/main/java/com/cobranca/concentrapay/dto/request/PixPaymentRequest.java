@@ -1,5 +1,8 @@
-package com.cobranca.concentrapay.dto;
+package com.cobranca.concentrapay.dto.request;
 
+import com.cobranca.concentrapay.dto.Devedor;
+import com.cobranca.concentrapay.dto.InfoAdicional;
+import com.cobranca.concentrapay.dto.Valor;
 import lombok.Getter;
 import lombok.Setter;
 

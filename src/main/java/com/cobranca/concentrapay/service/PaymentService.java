@@ -3,8 +3,10 @@ package com.cobranca.concentrapay.service;
 import br.com.efi.efisdk.EfiPay;
 import br.com.efi.efisdk.exceptions.EfiPayException;
 import com.cobranca.concentrapay.Credentials;
-import com.cobranca.concentrapay.dto.PixPaymentRequest;
-import com.cobranca.concentrapay.dto.PixPaymentResponse;
+import com.cobranca.concentrapay.dto.request.PixPaymentRequest;
+import com.cobranca.concentrapay.dto.request.PixSentRequest;
+import com.cobranca.concentrapay.dto.response.PixPaymentResponse;
+import com.cobranca.concentrapay.dto.response.PixSentResponse;
 import com.cobranca.concentrapay.exception.BadRequestException;
 import com.cobranca.concentrapay.repository.FirebaseRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -74,11 +76,43 @@ public class PaymentService {
         }
     }
 
+    public PixSentResponse sendPixPayment(PixSentRequest request) {
+        JSONObject options = getOptionsFromCredentials();
+
+        HashMap<String, String> params = new HashMap<String, String>();
+        params.put("idEnvio", "12457567890183473799");
+
+        JSONObject body = new JSONObject();
+        body.put("valor", request.getValor());
+        body.put("pagador", new JSONObject().put("chave", options.get("chave")));
+        body.put("favorecido", new JSONObject().put("chave", request.getChave()));
+
+        try {
+            EfiPay efi= new EfiPay(options);
+            JSONObject response = efi.call("pixSend", params, body);
+
+            ObjectMapper mapper = new ObjectMapper();
+
+            PixSentResponse pixSentResponse = mapper.readValue(response.toString(), PixSentResponse.class);
+            return pixSentResponse;
+        }catch (EfiPayException e){
+            log.error(e.getError());
+            log.error(e.getErrorDescription());
+            throw new BadRequestException(e.getError() + " " + e.getErrorDescription());
+        }
+        catch (Exception e) {
+            log.error(e.getMessage());
+            throw new BadRequestException(e.getMessage());
+        }
+    }
+
     private void checkOrderPayment(PixPaymentResponse pixPaymentResponse) {
         if ("CONCLUIDA".equals(pixPaymentResponse.getStatus())) {
             try {
                 String solicitacao = pixPaymentResponse.getSolicitacaoPagador();
                 String comandaId = solicitacao.substring(solicitacao.indexOf("#") + 1).trim();
+
+                firebaseRepository.createPaymentsForCreatedOrders(comandaId);
 
                 firebaseRepository.updateOrdersByCommandNumber(comandaId, "CLOSED");
             } catch (Exception e) {

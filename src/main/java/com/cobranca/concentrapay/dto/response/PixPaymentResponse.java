@@ -1,5 +1,6 @@
-package com.cobranca.concentrapay.dto;
+package com.cobranca.concentrapay.dto.response;
 
+import com.cobranca.concentrapay.dto.*;
 import lombok.Data;
 
 import java.util.List;
