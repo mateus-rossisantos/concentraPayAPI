@@ -6,8 +6,10 @@ import com.google.firebase.cloud.FirestoreClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 @Slf4j
@@ -37,11 +39,12 @@ public class FirebaseRepository {
         }
     }
 
-    public void createPaymentsForCreatedOrders(String commandNumber) {
+    public void addPendingPaymentToEc(String commandNumber) {
         Firestore db = FirestoreClient.getFirestore();
         CollectionReference orders = db.collection("order");
 
         try {
+            // Buscar os pedidos com a comanda e status CREATED
             ApiFuture<QuerySnapshot> query = orders
                     .whereEqualTo("commandNumber", commandNumber)
                     .whereEqualTo("status", "CREATED")
@@ -49,25 +52,57 @@ public class FirebaseRepository {
 
             List<QueryDocumentSnapshot> documents = query.get().getDocuments();
 
+            if (documents.isEmpty()) {
+                log.warn("Nenhum pedido com status CREATED para comanda {}", commandNumber);
+                return;
+            }
+
+            // Mapeia os valores por ec
+            Map<String, Double> valoresPorEc = new HashMap<>();
+
             for (QueryDocumentSnapshot doc : documents) {
                 String ec = doc.getString("ec");
-                String data = doc.getString("date");
-                Double valor = doc.getDouble("value");
+                Double valor = doc.getDouble("valor");
+                if (ec != null && valor != null) {
+                    valoresPorEc.merge(ec, valor, Double::sum);
+                }
+            }
 
-                DocumentReference pagamentoDoc = db.collection("pagamento").document();
-                pagamentoDoc.set(new HashMap<>() {{
-                    put("id", pagamentoDoc.getId());
-                    put("ec", ec);
-                    put("date", data);
-                    put("value", valor);
-                    put("status", "PENDING");
-                }});
+            // Atualiza o pendingPayment de cada ec
+            for (Map.Entry<String, Double> entry : valoresPorEc.entrySet()) {
+                String ecId = entry.getKey();
+                Double valorTotal = entry.getValue();
 
-                log.info("Criado pagamento para pedido {} com ID de pagamento {}", doc.getId(), pagamentoDoc.getId());
+                DocumentReference ecRef = db.collection("ec").document(ecId);
+                db.runTransaction(transaction -> {
+                    DocumentSnapshot snapshot = transaction.get(ecRef).get();
+                    Double pending = snapshot.contains("pendingPayment") ? snapshot.getDouble("pendingPayment") : 0.0;
+                    if (pending == null) pending = 0.0;
+                    transaction.update(ecRef, "pendingPayment", pending + valorTotal);
+                    return null;
+                }).get();
+
+                log.info("Atualizado pendingPayment para EC {}: +{}", ecId, valorTotal);
             }
 
         } catch (InterruptedException | ExecutionException e) {
-            log.error("Erro ao criar pagamentos para comanda {}: {}", commandNumber, e.getMessage(), e);
+            log.error("Erro ao atualizar pendingPayment para comanda {}: {}", commandNumber, e.getMessage(), e);
+        }
+    }
+
+    public List<QueryDocumentSnapshot> findEstablishmentsWithPendingPayments() {
+        Firestore db = FirestoreClient.getFirestore();
+        CollectionReference establishments = db.collection("estabelecimento");
+
+        try {
+            ApiFuture<QuerySnapshot> query = establishments
+                    .whereGreaterThan("pendingPayment", 0.0)
+                    .get();
+
+            return query.get().getDocuments();
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Erro ao buscar estabelecimentos com pagamentos pendentes: {}", e.getMessage(), e);
+            return Collections.emptyList();
         }
     }
 }

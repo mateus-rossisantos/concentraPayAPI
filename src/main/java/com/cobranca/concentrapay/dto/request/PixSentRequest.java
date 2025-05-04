@@ -1,12 +1,11 @@
 package com.cobranca.concentrapay.dto.request;
 
-import com.cobranca.concentrapay.dto.Valor;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Builder;
+import lombok.Data;
 
-@Getter
-@Setter
+@Data
+@Builder
 public class PixSentRequest {
-    private Valor valor;
+    private String valor;
     private String chave;
 }

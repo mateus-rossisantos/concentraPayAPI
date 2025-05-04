@@ -93,8 +93,7 @@ public class PaymentService {
 
             ObjectMapper mapper = new ObjectMapper();
 
-            PixSentResponse pixSentResponse = mapper.readValue(response.toString(), PixSentResponse.class);
-            return pixSentResponse;
+            return mapper.readValue(response.toString(), PixSentResponse.class);
         }catch (EfiPayException e){
             log.error(e.getError());
             log.error(e.getErrorDescription());
@@ -112,7 +111,7 @@ public class PaymentService {
                 String solicitacao = pixPaymentResponse.getSolicitacaoPagador();
                 String comandaId = solicitacao.substring(solicitacao.indexOf("#") + 1).trim();
 
-                firebaseRepository.createPaymentsForCreatedOrders(comandaId);
+                firebaseRepository.addPendingPaymentToEc(comandaId);
 
                 firebaseRepository.updateOrdersByCommandNumber(comandaId, "CLOSED");
             } catch (Exception e) {
@@ -120,6 +119,7 @@ public class PaymentService {
             }
         }
     }
+
 
     private JSONObject getOptionsFromCredentials() {
         Credentials credentials = new Credentials();
