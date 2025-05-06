@@ -6,6 +6,7 @@ import com.cobranca.concentrapay.Credentials;
 import com.cobranca.concentrapay.dto.request.PixPaymentRequest;
 import com.cobranca.concentrapay.dto.request.PixSentRequest;
 import com.cobranca.concentrapay.dto.response.PixPaymentResponse;
+import com.cobranca.concentrapay.dto.response.PixSentInfoResponse;
 import com.cobranca.concentrapay.dto.response.PixSentResponse;
 import com.cobranca.concentrapay.exception.BadRequestException;
 import com.cobranca.concentrapay.repository.FirebaseRepository;
@@ -94,6 +95,30 @@ public class PaymentService {
             ObjectMapper mapper = new ObjectMapper();
 
             return mapper.readValue(response.toString(), PixSentResponse.class);
+        }catch (EfiPayException e){
+            log.error(e.getError());
+            log.error(e.getErrorDescription());
+            throw new BadRequestException(e.getError() + " " + e.getErrorDescription());
+        }
+        catch (Exception e) {
+            log.error(e.getMessage());
+            throw new BadRequestException(e.getMessage());
+        }
+    }
+
+    public PixSentInfoResponse getSentPixInfo(String e2eId) {
+        JSONObject options = getOptionsFromCredentials();
+
+        HashMap<String, String> params = new HashMap<String, String>();
+        params.put("e2eId", e2eId);
+
+        try {
+            EfiPay efi= new EfiPay(options);
+            JSONObject response = efi.call("pixSendDetail", params, new JSONObject());
+
+            ObjectMapper mapper = new ObjectMapper();
+
+            return mapper.readValue(response.toString(), PixSentInfoResponse.class);
         }catch (EfiPayException e){
             log.error(e.getError());
             log.error(e.getErrorDescription());

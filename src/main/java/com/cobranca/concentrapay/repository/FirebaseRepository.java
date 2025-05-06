@@ -90,6 +90,19 @@ public class FirebaseRepository {
         }
     }
 
+    public void clearPendingPaymentForEc(String ecId) {
+        Firestore db = FirestoreClient.getFirestore();
+        DocumentReference ecRef = db.collection("estabelecimento").document(ecId);
+
+        try {
+            ecRef.update("pendingPayment", 0.0);
+            log.info("Zerado pendingPayment para EC {}", ecId);
+        } catch (Exception e) {
+            log.error("Erro ao zerar pendingPayment para EC {}: {}", ecId, e.getMessage(), e);
+        }
+    }
+
+
     public List<QueryDocumentSnapshot> findEstablishmentsWithPendingPayments() {
         Firestore db = FirestoreClient.getFirestore();
         CollectionReference establishments = db.collection("estabelecimento");
