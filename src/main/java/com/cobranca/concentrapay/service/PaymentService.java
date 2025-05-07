@@ -13,14 +13,9 @@ import com.cobranca.concentrapay.dto.response.PixSentResponse;
 import com.cobranca.concentrapay.exception.BadRequestException;
 import com.cobranca.concentrapay.repository.FirebaseRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.cloud.firestore.DocumentReference;
-import com.google.cloud.firestore.Firestore;
-import com.google.firebase.cloud.FirestoreClient;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
