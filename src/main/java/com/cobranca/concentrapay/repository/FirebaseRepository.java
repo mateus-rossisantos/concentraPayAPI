@@ -1,5 +1,6 @@
 package com.cobranca.concentrapay.repository;
 
+import com.cobranca.concentrapay.dto.response.MoneyPaymentResponse;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.*;
 import com.google.firebase.cloud.FirestoreClient;
@@ -116,6 +117,56 @@ public class FirebaseRepository {
         } catch (InterruptedException | ExecutionException e) {
             log.error("Erro ao buscar estabelecimentos com pagamentos pendentes: {}", e.getMessage(), e);
             return Collections.emptyList();
+        }
+    }
+    public MoneyPaymentResponse processMoneyPaymentForEc(String ecId, double valorPagamento) {
+        Firestore db = FirestoreClient.getFirestore();
+        DocumentReference ecRef = db.collection("estabelecimento").document(ecId);
+
+        MoneyPaymentResponse response = new MoneyPaymentResponse();
+        response.setEc(ecId);
+
+        try {
+            Map<String, Double> result = db.runTransaction(transaction -> {
+                DocumentSnapshot snapshot = transaction.get(ecRef).get();
+
+                if (!snapshot.exists()) {
+                    throw new RuntimeException("Estabelecimento não encontrado: " + ecId);
+                }
+
+                Double pending = snapshot.getDouble("pendingPayment");
+                Double advance = snapshot.getDouble("advancePayment");
+
+                if (pending == null) pending = 0.0;
+                if (advance == null) advance = 0.0;
+
+                if (valorPagamento <= pending) {
+                    pending -= valorPagamento;
+                } else {
+                    double excesso = valorPagamento - pending;
+                    pending = 0.0;
+                    advance += excesso;
+                }
+
+                transaction.update(ecRef, "pendingPayment", pending);
+                transaction.update(ecRef, "advancePayment", advance);
+
+                Map<String, Double> resultMap = new HashMap<>();
+                resultMap.put("pending", pending);
+                resultMap.put("advance", advance);
+                return resultMap;
+            }).get();
+
+            response.setPendingPayment(result.get("pending"));
+            response.setAdvancePayment(result.get("advance"));
+            return response;
+
+        } catch (Exception e) {
+            log.error("Erro ao processar pagamento para EC {}: {}", ecId, e.getMessage(), e);
+            // Retorna valores zerados em caso de falha
+            response.setPendingPayment(0.0);
+            response.setAdvancePayment(0.0);
+            return response;
         }
     }
 }

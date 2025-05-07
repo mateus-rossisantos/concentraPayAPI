@@ -12,7 +12,6 @@ import java.util.List;
 @Setter
 public class PixPaymentRequest {
 
-    private Devedor devedor;
     private Valor valor;
     private String chave;
     private String solicitacaoPagador;

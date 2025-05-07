@@ -3,17 +3,24 @@ package com.cobranca.concentrapay.service;
 import br.com.efi.efisdk.EfiPay;
 import br.com.efi.efisdk.exceptions.EfiPayException;
 import com.cobranca.concentrapay.Credentials;
+import com.cobranca.concentrapay.dto.request.MoneyPaymentRequest;
 import com.cobranca.concentrapay.dto.request.PixPaymentRequest;
 import com.cobranca.concentrapay.dto.request.PixSentRequest;
+import com.cobranca.concentrapay.dto.response.MoneyPaymentResponse;
 import com.cobranca.concentrapay.dto.response.PixPaymentResponse;
 import com.cobranca.concentrapay.dto.response.PixSentInfoResponse;
 import com.cobranca.concentrapay.dto.response.PixSentResponse;
 import com.cobranca.concentrapay.exception.BadRequestException;
 import com.cobranca.concentrapay.repository.FirebaseRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.cloud.firestore.DocumentReference;
+import com.google.cloud.firestore.Firestore;
+import com.google.firebase.cloud.FirestoreClient;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
@@ -158,4 +165,20 @@ public class PaymentService {
 
         return options;
     }
+
+    public MoneyPaymentResponse createMoneyPayment(MoneyPaymentRequest request) {
+        String ecId = request.getEc();
+        double valor = request.getValor();
+
+        if (ecId == null || ecId.isEmpty() || valor <= 0) {
+            MoneyPaymentResponse response = new MoneyPaymentResponse();
+            response.setEc(ecId != null ? ecId : "desconhecido");
+            response.setPendingPayment(0.0);
+            response.setAdvancePayment(0.0);
+            return response;
+        }
+
+        return firebaseRepository.processMoneyPaymentForEc(ecId, valor);
+    }
+
 }
