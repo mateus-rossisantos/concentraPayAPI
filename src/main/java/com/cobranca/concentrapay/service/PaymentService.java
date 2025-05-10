@@ -38,7 +38,7 @@ public class PaymentService {
 
         try {
             EfiPay efi = new EfiPay(options);
-            JSONObject response = efi.call("pixCreateImmediateCharge", new HashMap<String,String>(), body);
+            JSONObject response = efi.call("pixCreateImmediateCharge", new HashMap<>(), body);
 
             ObjectMapper mapper = new ObjectMapper();
             return mapper.readValue(response.toString(), PixPaymentResponse.class);
@@ -56,7 +56,7 @@ public class PaymentService {
     public PixPaymentResponse getPixInfo(String txid) {
         JSONObject options = getOptionsFromCredentials();
 
-        HashMap<String, String> params = new HashMap<String, String>();
+        HashMap<String, String> params = new HashMap<>();
         params.put("txid", txid);
 
         try {
@@ -82,7 +82,7 @@ public class PaymentService {
     public PixSentResponse sendPixPayment(PixSentRequest request) {
         JSONObject options = getOptionsFromCredentials();
 
-        HashMap<String, String> params = new HashMap<String, String>();
+        HashMap<String, String> params = new HashMap<>();
         params.put("idEnvio", "12457567890183473799");
 
         JSONObject body = new JSONObject();
@@ -111,7 +111,7 @@ public class PaymentService {
     public PixSentInfoResponse getSentPixInfo(String e2eId) {
         JSONObject options = getOptionsFromCredentials();
 
-        HashMap<String, String> params = new HashMap<String, String>();
+        HashMap<String, String> params = new HashMap<>();
         params.put("e2eId", e2eId);
 
         try {
@@ -132,6 +132,10 @@ public class PaymentService {
         }
     }
 
+    public MoneyPaymentResponse createMoneyPayment(MoneyPaymentRequest request) {
+        return firebaseRepository.processMoneyPaymentForEc(request);
+    }
+
     private void checkOrderPayment(PixPaymentResponse pixPaymentResponse) {
         if ("CONCLUIDA".equals(pixPaymentResponse.getStatus())) {
             try {
@@ -140,7 +144,7 @@ public class PaymentService {
 
                 firebaseRepository.addPendingPaymentToEc(comandaId);
 
-                firebaseRepository.updateOrdersByCommandNumber(comandaId, "CLOSED");
+                firebaseRepository.closeCommand(comandaId);
             } catch (Exception e) {
                 log.error("Erro ao processar pagamento da comanda: " + e.getMessage(), e);
             }
@@ -159,21 +163,6 @@ public class PaymentService {
         options.put("chave", credentials.getChave());
 
         return options;
-    }
-
-    public MoneyPaymentResponse createMoneyPayment(MoneyPaymentRequest request) {
-        String ecId = request.getEc();
-        double valor = request.getValor();
-
-        if (ecId == null || ecId.isEmpty() || valor <= 0) {
-            MoneyPaymentResponse response = new MoneyPaymentResponse();
-            response.setEc(ecId != null ? ecId : "desconhecido");
-            response.setPendingPayment(0.0);
-            response.setAdvancePayment(0.0);
-            return response;
-        }
-
-        return firebaseRepository.processMoneyPaymentForEc(ecId, valor);
     }
 
 }

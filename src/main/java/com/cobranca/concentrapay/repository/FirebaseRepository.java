@@ -1,5 +1,6 @@
 package com.cobranca.concentrapay.repository;
 
+import com.cobranca.concentrapay.dto.request.MoneyPaymentRequest;
 import com.cobranca.concentrapay.dto.response.MoneyPaymentResponse;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.firestore.*;
@@ -17,7 +18,7 @@ import java.util.concurrent.ExecutionException;
 @Repository
 public class FirebaseRepository {
 
-    public void updateOrdersByCommandNumber(String commandNumber, String newStatus) {
+    public void closeCommand(String commandNumber) {
         Firestore db = FirestoreClient.getFirestore();
         CollectionReference orders = db.collection("order");
 
@@ -32,8 +33,8 @@ public class FirebaseRepository {
 
             for (QueryDocumentSnapshot doc : documents) {
                 DocumentReference docRef = doc.getReference();
-                docRef.update("status", newStatus);
-                log.info("Atualizado pedido {} para status {}", docRef.getId(), newStatus);
+                docRef.update("status", "CLOSED");
+                log.info("Atualizado pedido {} para status {}", docRef.getId(), "CLOSED");
             }
         } catch (InterruptedException | ExecutionException e) {
             log.error("Erro ao atualizar pedidos: {}", e.getMessage(), e);
@@ -77,11 +78,8 @@ public class FirebaseRepository {
                 DocumentReference ecRef = db.collection("ec").document(ecId);
                 db.runTransaction(transaction -> {
                     DocumentSnapshot snapshot = transaction.get(ecRef).get();
-                    Double pending = snapshot.contains("pendingPayment") ? snapshot.getDouble("pendingPayment") : 0.0;
-                    Double advance = snapshot.contains("advancePayment") ? snapshot.getDouble("advancePayment") : 0.0;
-
-                    if (pending == null) pending = 0.0;
-                    if (advance == null) advance = 0.0;
+                    double pending = snapshot.contains("pendingPayment") ? snapshot.getDouble("pendingPayment") : 0.0;
+                    double advance = snapshot.contains("advancePayment") ? snapshot.getDouble("advancePayment") : 0.0;
 
                     double valorParaAdicionar = valorTotal;
 
@@ -140,19 +138,20 @@ public class FirebaseRepository {
             return Collections.emptyList();
         }
     }
-    public MoneyPaymentResponse processMoneyPaymentForEc(String ecId, double valorPagamento) {
+
+    public MoneyPaymentResponse processMoneyPaymentForEc(MoneyPaymentRequest request) {
         Firestore db = FirestoreClient.getFirestore();
-        DocumentReference ecRef = db.collection("estabelecimento").document(ecId);
+        DocumentReference ecRef = db.collection("estabelecimento").document(request.getEc());
 
         MoneyPaymentResponse response = new MoneyPaymentResponse();
-        response.setEc(ecId);
+        response.setEc(request.getEc());
 
         try {
             Map<String, Double> result = db.runTransaction(transaction -> {
                 DocumentSnapshot snapshot = transaction.get(ecRef).get();
 
                 if (!snapshot.exists()) {
-                    throw new RuntimeException("Estabelecimento não encontrado: " + ecId);
+                    throw new RuntimeException("Estabelecimento não encontrado: " + request.getEc());
                 }
 
                 Double pending = snapshot.getDouble("pendingPayment");
@@ -161,10 +160,10 @@ public class FirebaseRepository {
                 if (pending == null) pending = 0.0;
                 if (advance == null) advance = 0.0;
 
-                if (valorPagamento <= pending) {
-                    pending -= valorPagamento;
+                if (request.getValor() <= pending) {
+                    pending -= request.getValor();
                 } else {
-                    double excesso = valorPagamento - pending;
+                    double excesso = request.getValor() - pending;
                     pending = 0.0;
                     advance += excesso;
                 }
@@ -180,14 +179,44 @@ public class FirebaseRepository {
 
             response.setPendingPayment(result.get("pending"));
             response.setAdvancePayment(result.get("advance"));
+
+            closeCommandByEC(request.getComanda(), request.getEc());
+            addPendingPaymentToEc(request.getComanda());
             return response;
 
         } catch (Exception e) {
-            log.error("Erro ao processar pagamento para EC {}: {}", ecId, e.getMessage(), e);
+            log.error("Erro ao processar pagamento para EC {}: {}", request.getEc(), e.getMessage(), e);
             // Retorna valores zerados em caso de falha
             response.setPendingPayment(0.0);
             response.setAdvancePayment(0.0);
             return response;
+        }
+    }
+
+    private void closeCommandByEC(String commandNumber, String ec) {
+        Firestore db = FirestoreClient.getFirestore();
+        CollectionReference orders = db.collection("order");
+
+        ApiFuture<QuerySnapshot> query = orders
+                .whereEqualTo("commandNumber", commandNumber)
+                .whereEqualTo("status", "CREATED")
+                .whereEqualTo("ec", ec)
+                .get();
+
+        try {
+            List<QueryDocumentSnapshot> documents = query.get().getDocuments();
+            if (documents.isEmpty()) {
+                log.warn("Nenhum pedido encontrado com commandNumber = {}", commandNumber);
+                return;
+            }
+
+            for (QueryDocumentSnapshot doc : documents) {
+                DocumentReference docRef = doc.getReference();
+                docRef.update("status", "CLOSED");
+                log.info("Atualizado pedido {} para status {}", docRef.getId(), "CLOSED");
+            }
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Erro ao atualizar pedidos: {}", e.getMessage(), e);
         }
     }
 }
