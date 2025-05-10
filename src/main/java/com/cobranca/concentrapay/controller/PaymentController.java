@@ -4,6 +4,7 @@ import com.cobranca.concentrapay.dto.request.MoneyPaymentRequest;
 import com.cobranca.concentrapay.dto.request.PixPaymentRequest;
 import com.cobranca.concentrapay.dto.response.MoneyPaymentResponse;
 import com.cobranca.concentrapay.dto.response.PixPaymentResponse;
+import com.cobranca.concentrapay.service.ConsultingService;
 import com.cobranca.concentrapay.service.PaymentService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -17,6 +18,8 @@ public class PaymentController {
 
     @Autowired
     private PaymentService paymentService;
+    @Autowired
+    private ConsultingService consultingService;
 
     @PostMapping("/pix")
     public PixPaymentResponse createPixPayment(@RequestBody PixPaymentRequest request) {
@@ -30,10 +33,14 @@ public class PaymentController {
 
     @PostMapping("/money")
     public ResponseEntity<MoneyPaymentResponse> createMoneyPayment(@RequestBody MoneyPaymentRequest request) {
-
         MoneyPaymentResponse response = paymentService.createMoneyPayment(request);
-
         return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @GetMapping("/consulting")
+    public ResponseEntity getPixInfo() {
+        consultingService.processPendingPayments();
+        return ResponseEntity.ok().build();
     }
 
 

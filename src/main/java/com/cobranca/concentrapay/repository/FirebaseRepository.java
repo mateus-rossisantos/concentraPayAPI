@@ -78,10 +78,31 @@ public class FirebaseRepository {
                 db.runTransaction(transaction -> {
                     DocumentSnapshot snapshot = transaction.get(ecRef).get();
                     Double pending = snapshot.contains("pendingPayment") ? snapshot.getDouble("pendingPayment") : 0.0;
+                    Double advance = snapshot.contains("advancePayment") ? snapshot.getDouble("advancePayment") : 0.0;
+
                     if (pending == null) pending = 0.0;
-                    transaction.update(ecRef, "pendingPayment", pending + valorTotal);
+                    if (advance == null) advance = 0.0;
+
+                    double valorParaAdicionar = valorTotal;
+
+                    if (advance > 0) {
+                        if (advance >= valorParaAdicionar) {
+                            // Todo o valor é coberto pelo adiantamento
+                            advance -= valorParaAdicionar;
+                            valorParaAdicionar = 0.0;
+                        } else {
+                            // Parte é coberta pelo adiantamento
+                            valorParaAdicionar -= advance;
+                            advance = 0.0;
+                        }
+                    }
+
+                    transaction.update(ecRef, "pendingPayment", pending + valorParaAdicionar);
+                    transaction.update(ecRef, "advancePayment", advance);
+
                     return null;
                 }).get();
+
 
                 log.info("Atualizado pendingPayment para EC {}: +{}", ecId, valorTotal);
             }
