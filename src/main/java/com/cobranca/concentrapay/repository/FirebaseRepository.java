@@ -18,16 +18,16 @@ import java.util.concurrent.ExecutionException;
 @Repository
 public class FirebaseRepository {
 
-    public void closeCommand(String commandNumber) {
+    public void closeCommand(String numeroComanda) {
         Firestore db = FirestoreClient.getFirestore();
-        CollectionReference orders = db.collection("order");
+        CollectionReference orders = db.collection("pedido");
 
-        ApiFuture<QuerySnapshot> query = orders.whereEqualTo("commandNumber", commandNumber).get();
+        ApiFuture<QuerySnapshot> query = orders.whereEqualTo("numeroComanda", numeroComanda).get();
 
         try {
             List<QueryDocumentSnapshot> documents = query.get().getDocuments();
             if (documents.isEmpty()) {
-                log.warn("Nenhum pedido encontrado com commandNumber = {}", commandNumber);
+                log.warn("Nenhum pedido encontrado com número de comanda = {}", numeroComanda);
                 return;
             }
 
@@ -41,21 +41,21 @@ public class FirebaseRepository {
         }
     }
 
-    public void addPendingPaymentToEc(String commandNumber) {
+    public void addPendingPaymentToEc(String numeroComanda) {
         Firestore db = FirestoreClient.getFirestore();
-        CollectionReference orders = db.collection("order");
+        CollectionReference orders = db.collection("pedido");
 
         try {
             // Buscar os pedidos com a comanda e status CREATED
             ApiFuture<QuerySnapshot> query = orders
-                    .whereEqualTo("commandNumber", commandNumber)
+                    .whereEqualTo("numeroComanda", numeroComanda)
                     .whereEqualTo("status", "CREATED")
                     .get();
 
             List<QueryDocumentSnapshot> documents = query.get().getDocuments();
 
             if (documents.isEmpty()) {
-                log.warn("Nenhum pedido com status CREATED para comanda {}", commandNumber);
+                log.warn("Nenhum pedido com status CREATED para comanda {}", numeroComanda);
                 return;
             }
 
@@ -75,7 +75,7 @@ public class FirebaseRepository {
                 String ecId = entry.getKey();
                 Double valorTotal = entry.getValue();
 
-                DocumentReference ecRef = db.collection("ec").document(ecId);
+                DocumentReference ecRef = db.collection("estabelecimento").document(ecId);
                 db.runTransaction(transaction -> {
                     DocumentSnapshot snapshot = transaction.get(ecRef).get();
                     double pending = snapshot.contains("pendingPayment") ? snapshot.getDouble("pendingPayment") : 0.0;
@@ -106,7 +106,7 @@ public class FirebaseRepository {
             }
 
         } catch (InterruptedException | ExecutionException e) {
-            log.error("Erro ao atualizar pendingPayment para comanda {}: {}", commandNumber, e.getMessage(), e);
+            log.error("Erro ao atualizar pendingPayment para comanda {}: {}", numeroComanda, e.getMessage(), e);
         }
     }
 
@@ -193,12 +193,12 @@ public class FirebaseRepository {
         }
     }
 
-    private void closeCommandByEC(String commandNumber, String ec) {
+    private void closeCommandByEC(String numeroComanda, String ec) {
         Firestore db = FirestoreClient.getFirestore();
-        CollectionReference orders = db.collection("order");
+        CollectionReference orders = db.collection("pedido");
 
         ApiFuture<QuerySnapshot> query = orders
-                .whereEqualTo("commandNumber", commandNumber)
+                .whereEqualTo("numeroComanda", numeroComanda)
                 .whereEqualTo("status", "CREATED")
                 .whereEqualTo("ec", ec)
                 .get();
@@ -206,7 +206,7 @@ public class FirebaseRepository {
         try {
             List<QueryDocumentSnapshot> documents = query.get().getDocuments();
             if (documents.isEmpty()) {
-                log.warn("Nenhum pedido encontrado com commandNumber = {}", commandNumber);
+                log.warn("Nenhum pedido encontrado com número de comanda = {}", numeroComanda);
                 return;
             }
 
