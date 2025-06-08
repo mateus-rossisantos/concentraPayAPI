@@ -1,14 +1,16 @@
-# Imagem base com Java JDK 17
-FROM eclipse-temurin:17-jdk-alpine
+FROM ubuntu:latest AS build
 
-# Diretório de trabalho dentro do container
-WORKDIR /app
+RUN apt-get update
+RUN apt-get install openjdk-17-jdk -y
+COPY . .
 
-# Copia o JAR gerado para o container
-COPY target/concentrapay-0.0.1-SNAPSHOT.jar app.jar
+RUN apt-get install maven -y
+RUN mvn clean install
 
-# Expõe a porta que a aplicação Spring Boot usa
+FROM openjdk:17-jdk-slim
+
 EXPOSE 8080
 
-# Comando para rodar o JAR
-ENTRYPOINT ["java", "-jar", "app.jar"]
+COPY --from=build /target/concentrapay-0.0.1-SNAPSHOT.jar app.jar
+
+ENTRYPOINT [ "java", "-jar", "app.jar" ]
