@@ -11,8 +11,10 @@ import com.cobranca.concentrapay.dto.response.PixPaymentResponse;
 import com.cobranca.concentrapay.dto.response.PixSentInfoResponse;
 import com.cobranca.concentrapay.dto.response.PixSentResponse;
 import com.cobranca.concentrapay.exception.BadRequestException;
+import com.cobranca.concentrapay.exception.NotFoundException;
 import com.cobranca.concentrapay.repository.FirebaseRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.cloud.firestore.DocumentSnapshot;
 import lombok.extern.slf4j.Slf4j;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -136,6 +138,32 @@ public class PaymentService {
         return firebaseRepository.processMoneyPaymentForEc(request);
     }
 
+    public String processPendingPayments(String ecId) {
+        DocumentSnapshot doc = firebaseRepository.findEstablishmentById(ecId);
+
+        if (doc == null || !doc.exists()) {
+            log.warn("Estabelecimento com ID {} não encontrado.", ecId);
+            throw new NotFoundException(String.format("Estabelecimento com ID {} não encontrado.", ecId));
+        }
+
+        Double pendingPayment = doc.getDouble("pendingPayment");
+        String chavePix = doc.getString("chavePix");
+
+        if (pendingPayment == null || pendingPayment <= 0.0) {
+            log.warn("Estabelecimento {} sem pagamento pendente.", ecId);
+            throw new BadRequestException(String.format("Estabelecimento {} sem pagamento pendente.", ecId));
+        }
+
+        PixSentRequest pixSentRequest = PixSentRequest.builder()
+                .chave(chavePix)
+                .valor(pendingPayment.toString())
+                .build();
+
+        PixSentResponse response = this.sendPixPayment(pixSentRequest);
+        log.info("Pagamento enviado para EC {} no valor de R$ {}. Aguardando confirmação...", ecId, pendingPayment);
+        return response.getE2eId();
+    }
+
     private void checkOrderPayment(PixPaymentResponse pixPaymentResponse) {
         if ("CONCLUIDA".equals(pixPaymentResponse.getStatus())) {
             try {
@@ -164,5 +192,4 @@ public class PaymentService {
 
         return options;
     }
-
 }

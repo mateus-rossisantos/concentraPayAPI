@@ -8,7 +8,6 @@ import com.google.firebase.cloud.FirestoreClient;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
 
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -123,19 +122,16 @@ public class FirebaseRepository {
     }
 
 
-    public List<QueryDocumentSnapshot> findEstablishmentsWithPendingPayments() {
+    public DocumentSnapshot findEstablishmentById(String ecId) {
         Firestore db = FirestoreClient.getFirestore();
-        CollectionReference establishments = db.collection("estabelecimento");
+        DocumentReference docRef = db.collection("estabelecimento").document(ecId);
 
         try {
-            ApiFuture<QuerySnapshot> query = establishments
-                    .whereGreaterThan("pendingPayment", 0.0)
-                    .get();
-
-            return query.get().getDocuments();
+            ApiFuture<DocumentSnapshot> future = docRef.get();
+            return future.get();
         } catch (InterruptedException | ExecutionException e) {
-            log.error("Erro ao buscar estabelecimentos com pagamentos pendentes: {}", e.getMessage(), e);
-            return Collections.emptyList();
+            log.error("Erro ao buscar estabelecimento com ID {}: {}", ecId, e.getMessage(), e);
+            return null;
         }
     }
 
