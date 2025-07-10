@@ -21,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.HashMap;
+import java.util.Locale;
 
 @Service
 @Slf4j
@@ -110,7 +111,7 @@ public class PaymentService {
         }
     }
 
-    public PixSentInfoResponse getSentPixInfo(String e2eId) {
+    public PixSentInfoResponse getSentPixInfo(String id, String e2eId) {
         JSONObject options = getOptionsFromCredentials();
 
         HashMap<String, String> params = new HashMap<>();
@@ -122,7 +123,10 @@ public class PaymentService {
 
             ObjectMapper mapper = new ObjectMapper();
 
-            return mapper.readValue(response.toString(), PixSentInfoResponse.class);
+            PixSentInfoResponse pixSentInfoResponse = mapper.readValue(response.toString(), PixSentInfoResponse.class);
+
+            checkPixSent(id, pixSentInfoResponse);
+            return pixSentInfoResponse;
         }catch (EfiPayException e){
             log.error(e.getError());
             log.error(e.getErrorDescription());
@@ -131,6 +135,12 @@ public class PaymentService {
         catch (Exception e) {
             log.error(e.getMessage());
             throw new BadRequestException(e.getMessage());
+        }
+    }
+
+    private void checkPixSent(String id, PixSentInfoResponse pixSentInfoResponse) {
+        if ("REALIZADO".equals(pixSentInfoResponse.getStatus())) {
+            firebaseRepository.clearPendingPaymentForEc(id);
         }
     }
 
@@ -156,7 +166,7 @@ public class PaymentService {
 
         PixSentRequest pixSentRequest = PixSentRequest.builder()
                 .chave(chavePix)
-                .valor(pendingPayment.toString())
+                .valor(String.format(Locale.US, "%.2f", pendingPayment))
                 .build();
 
         PixSentResponse response = this.sendPixPayment(pixSentRequest);

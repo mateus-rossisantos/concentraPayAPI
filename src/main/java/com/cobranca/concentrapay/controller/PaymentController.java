@@ -41,9 +41,9 @@ public class PaymentController {
         return  new ResponseEntity<>(response, HttpStatus.OK);
     }
 
-    @GetMapping("/pending/{e2eId}")
-    public ResponseEntity<PixSentInfoResponse> consultPendingPayments(@PathVariable String e2eId) {
-        PixSentInfoResponse response = paymentService.getSentPixInfo(e2eId);
+    @GetMapping("/{id}/pending/{e2eId}")
+    public ResponseEntity<PixSentInfoResponse> consultPendingPayments(@PathVariable String id, @PathVariable String e2eId) {
+        PixSentInfoResponse response = paymentService.getSentPixInfo(id, e2eId);
         return  new ResponseEntity<>(response, HttpStatus.OK);
     }
 
