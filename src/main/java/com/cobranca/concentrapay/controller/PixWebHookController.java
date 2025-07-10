@@ -13,6 +13,7 @@ public class PixWebHookController {
     @PostMapping("")
     @ResponseStatus(HttpStatus.OK)
     public ResponseEntity<String> handlePixWebhook() {
+        log.info("Webhook acessada");
         return ResponseEntity.ok("200");
     }
 }
