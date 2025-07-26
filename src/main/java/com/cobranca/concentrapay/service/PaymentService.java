@@ -86,7 +86,7 @@ public class PaymentService {
         JSONObject options = getOptionsFromCredentials();
 
         HashMap<String, String> params = new HashMap<>();
-        params.put("idEnvio", "12457567890183473799");
+        params.put("idEnvio", String.valueOf(Math.random() * 10).replace(".", ""));
 
         JSONObject body = new JSONObject();
         body.put("valor", request.getValor());
