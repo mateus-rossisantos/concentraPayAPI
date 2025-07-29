@@ -17,16 +17,16 @@ import java.util.concurrent.ExecutionException;
 @Repository
 public class FirebaseRepository {
 
-    public void closeCommand(String numeroComanda) {
+    public void closeCommand(String txId) {
         Firestore db = FirestoreClient.getFirestore();
         CollectionReference orders = db.collection("pedido");
 
-        ApiFuture<QuerySnapshot> query = orders.whereEqualTo("numeroComanda", numeroComanda).get();
+        ApiFuture<QuerySnapshot> query = orders.whereEqualTo("txid", txId).get();
 
         try {
             List<QueryDocumentSnapshot> documents = query.get().getDocuments();
             if (documents.isEmpty()) {
-                log.warn("Nenhum pedido encontrado com número de comanda = {}", numeroComanda);
+                log.warn("Nenhum pedido encontrado com txId = {}", txId);
                 return;
             }
 
@@ -40,21 +40,21 @@ public class FirebaseRepository {
         }
     }
 
-    public void addPendingPaymentToEc(String numeroComanda) {
+    public void addPendingPaymentToEc(String txId) {
         Firestore db = FirestoreClient.getFirestore();
         CollectionReference orders = db.collection("pedido");
 
         try {
             // Buscar os pedidos com a comanda e status CREATED
             ApiFuture<QuerySnapshot> query = orders
-                    .whereEqualTo("numeroComanda", numeroComanda)
+                    .whereEqualTo("txid", txId)
                     .whereEqualTo("status", "CREATED")
                     .get();
 
             List<QueryDocumentSnapshot> documents = query.get().getDocuments();
 
             if (documents.isEmpty()) {
-                log.warn("Nenhum pedido com status CREATED para comanda {}", numeroComanda);
+                log.warn("Nenhum pedido com status CREATED para comanda {}", txId);
                 return;
             }
 
@@ -105,19 +105,58 @@ public class FirebaseRepository {
             }
 
         } catch (InterruptedException | ExecutionException e) {
-            log.error("Erro ao atualizar pendingPayment para comanda {}: {}", numeroComanda, e.getMessage(), e);
+            log.error("Erro ao atualizar pendingPayment para comanda {}: {}", txId, e.getMessage(), e);
         }
     }
 
-    public void clearPendingPaymentForEc(String ecId) {
+    public DocumentSnapshot findPedidoByTxId(String txId) {
         Firestore db = FirestoreClient.getFirestore();
-        DocumentReference ecRef = db.collection("estabelecimento").document(ecId);
+        CollectionReference orders = db.collection("pedido");
 
         try {
-            ecRef.update("pendingPayment", 0.0);
-            log.info("Zerado pendingPayment para EC {}", ecId);
-        } catch (Exception e) {
-            log.error("Erro ao zerar pendingPayment para EC {}: {}", ecId, e.getMessage(), e);
+            ApiFuture<QuerySnapshot> query = orders
+                    .whereEqualTo("txid", txId)
+                    .get();
+
+            List<QueryDocumentSnapshot> documents = query.get().getDocuments();
+
+            if (documents.isEmpty()) {
+                log.warn("Nenhum pedido encontrado com txid = {}", txId);
+                return null;
+            }
+
+            return documents.get(0);
+
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Erro ao buscar pedido com txid {}: {}", txId, e.getMessage(), e);
+            return null;
+        }
+    }
+
+    public void clearPendingPaymentForEc(String e2eId) {
+        Firestore db = FirestoreClient.getFirestore();
+        CollectionReference establishments = db.collection("estabelecimento");
+
+        try {
+            ApiFuture<QuerySnapshot> query = establishments
+                    .whereEqualTo("e2eIdLastPayment", e2eId)
+                    .get();
+
+            List<QueryDocumentSnapshot> documents = query.get().getDocuments();
+
+            if (documents.isEmpty()) {
+                log.warn("Nenhum estabelecimento encontrado com e2eIdLastPayment = {}", e2eId);
+                return;
+            }
+
+            for (QueryDocumentSnapshot doc : documents) {
+                DocumentReference ecRef = doc.getReference();
+                ecRef.update("pendingPayment", 0.0);
+                log.info("Zerado pendingPayment para EC {} com e2eIdLastPayment = {}", ecRef.getId(), e2eId);
+            }
+
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Erro ao zerar pendingPayment para e2eIdLastPayment {}: {}", e2eId, e.getMessage(), e);
         }
     }
 
@@ -213,6 +252,47 @@ public class FirebaseRepository {
             }
         } catch (InterruptedException | ExecutionException e) {
             log.error("Erro ao atualizar pedidos: {}", e.getMessage(), e);
+        }
+    }
+
+    public void createTxId(String txid, String comandaId) {
+        Firestore db = FirestoreClient.getFirestore();
+        CollectionReference orders = db.collection("pedido");
+
+        try {
+            ApiFuture<QuerySnapshot> query = orders
+                    .whereEqualTo("numeroComanda", comandaId)
+                    .whereEqualTo("status", "CREATED")
+                    .get();
+
+            List<QueryDocumentSnapshot> documents = query.get().getDocuments();
+
+            if (documents.isEmpty()) {
+                log.warn("Nenhum pedido com status CREATED encontrado para comanda {}", comandaId);
+                return;
+            }
+
+            for (QueryDocumentSnapshot doc : documents) {
+                DocumentReference docRef = doc.getReference();
+                docRef.update("txid", txid);
+                log.info("Adicionado txid {} ao pedido {}", txid, docRef.getId());
+            }
+
+        } catch (InterruptedException | ExecutionException e) {
+            log.error("Erro ao adicionar txid à comanda {}: {}", comandaId, e.getMessage(), e);
+        }
+    }
+
+    public void createE2EId(String e2eId, String ecId) {
+        Firestore db = FirestoreClient.getFirestore();
+        DocumentReference ecRef = db.collection("estabelecimento").document(ecId);
+
+        try {
+            ApiFuture<WriteResult> future = ecRef.update("e2eIdLastPayment", e2eId);
+            WriteResult result = future.get();
+            log.info("Atualizado e2eIdLastPayment para EC {}: {}, timestamp: {}", ecId, e2eId, result.getUpdateTime());
+        } catch (Exception e) {
+            log.error("Erro ao atualizar e2eIdLastPayment para EC {}: {}", ecId, e.getMessage(), e);
         }
     }
 }

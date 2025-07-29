@@ -44,32 +44,8 @@ public class PaymentService {
             JSONObject response = efi.call("pixCreateImmediateCharge", new HashMap<>(), body);
 
             ObjectMapper mapper = new ObjectMapper();
-            return mapper.readValue(response.toString(), PixPaymentResponse.class);
-        }catch (EfiPayException e){
-            log.error(e.getError());
-            log.error(e.getErrorDescription());
-            throw new BadRequestException(e.getError() + " " + e.getErrorDescription());
-        }
-        catch (Exception e) {
-            log.error(e.getMessage());
-            throw new BadRequestException(e.getMessage());
-        }
-    }
-
-    public PixPaymentResponse getPixInfo(String txid) {
-        JSONObject options = getOptionsFromCredentials();
-
-        HashMap<String, String> params = new HashMap<>();
-        params.put("txid", txid);
-
-        try {
-            EfiPay efi = new EfiPay(options);
-            JSONObject response = efi.call("pixDetailCharge", params, new JSONObject());
-
-            ObjectMapper mapper = new ObjectMapper();
             PixPaymentResponse pixPaymentResponse = mapper.readValue(response.toString(), PixPaymentResponse.class);
-
-            checkOrderPayment(pixPaymentResponse);
+            createTxId(pixPaymentResponse);
             return pixPaymentResponse;
         }catch (EfiPayException e){
             log.error(e.getError());
@@ -82,7 +58,19 @@ public class PaymentService {
         }
     }
 
-    public PixSentResponse sendPixPayment(PixSentRequest request) {
+    public PixPaymentResponse getPixInfo(String txid) {
+        DocumentSnapshot pedido = firebaseRepository.findPedidoByTxId(txid);
+
+        if (pedido != null) {
+            String status = pedido.getString("status");
+            if (status != null && status.equals("CLOSED")) {
+                return PixPaymentResponse.builder().status("CONCLUIDA").build();
+            }
+        }
+        return PixPaymentResponse.builder().status("EM ABERTO").build();
+    }
+
+    public PixSentResponse sendPixPayment(PixSentRequest request, String ecId) {
         JSONObject options = getOptionsFromCredentials();
 
         HashMap<String, String> params = new HashMap<>();
@@ -99,7 +87,9 @@ public class PaymentService {
 
             ObjectMapper mapper = new ObjectMapper();
 
-            return mapper.readValue(response.toString(), PixSentResponse.class);
+            PixSentResponse pixSentResponse = mapper.readValue(response.toString(), PixSentResponse.class);
+            createE2EId(pixSentResponse, ecId);
+            return  pixSentResponse;
         }catch (EfiPayException e){
             log.error(e.getError());
             log.error(e.getErrorDescription());
@@ -123,10 +113,7 @@ public class PaymentService {
 
             ObjectMapper mapper = new ObjectMapper();
 
-            PixSentInfoResponse pixSentInfoResponse = mapper.readValue(response.toString(), PixSentInfoResponse.class);
-
-            checkPixSent(id, pixSentInfoResponse);
-            return pixSentInfoResponse;
+           return mapper.readValue(response.toString(), PixSentInfoResponse.class);
         }catch (EfiPayException e){
             log.error(e.getError());
             log.error(e.getErrorDescription());
@@ -138,10 +125,8 @@ public class PaymentService {
         }
     }
 
-    private void checkPixSent(String id, PixSentInfoResponse pixSentInfoResponse) {
-        if ("REALIZADO".equals(pixSentInfoResponse.getStatus())) {
-            firebaseRepository.clearPendingPaymentForEc(id);
-        }
+    public void clearPendingPayment(String e2eId) {
+        firebaseRepository.clearPendingPaymentForEc(e2eId);
     }
 
     public MoneyPaymentResponse createMoneyPayment(MoneyPaymentRequest request) {
@@ -169,26 +154,16 @@ public class PaymentService {
                 .valor(String.format(Locale.US, "%.2f", pendingPayment))
                 .build();
 
-        PixSentResponse response = this.sendPixPayment(pixSentRequest);
+        PixSentResponse response = this.sendPixPayment(pixSentRequest, ecId);
         log.info("Pagamento enviado para EC {} no valor de R$ {}. Aguardando confirmação...", ecId, pendingPayment);
         return response.getE2eId();
     }
 
-    private void checkOrderPayment(PixPaymentResponse pixPaymentResponse) {
-        if ("CONCLUIDA".equals(pixPaymentResponse.getStatus())) {
-            try {
-                String solicitacao = pixPaymentResponse.getSolicitacaoPagador();
-                String comandaId = solicitacao.substring(solicitacao.indexOf("#") + 1).trim();
+    public void endOrderPayment(String txId) {
+        firebaseRepository.addPendingPaymentToEc(txId);
 
-                firebaseRepository.addPendingPaymentToEc(comandaId);
-
-                firebaseRepository.closeCommand(comandaId);
-            } catch (Exception e) {
-                log.error("Erro ao processar pagamento da comanda: " + e.getMessage(), e);
-            }
-        }
+        firebaseRepository.closeCommand(txId);
     }
-
 
     private JSONObject getOptionsFromCredentials() {
         Credentials credentials = new Credentials();
@@ -201,5 +176,16 @@ public class PaymentService {
         options.put("chave", credentials.getChave());
 
         return options;
+    }
+
+    private void createTxId(PixPaymentResponse pixPaymentResponse) {
+        String msg = pixPaymentResponse.getSolicitacaoPagador();
+        String comandaId = msg.substring(msg.indexOf("#") + 1).trim();
+        firebaseRepository.createTxId(pixPaymentResponse.getTxid(), comandaId);
+    }
+
+    private void createE2EId(PixSentResponse pixSentResponse, String ecId) {
+
+        firebaseRepository.createE2EId(pixSentResponse.getE2eId(), ecId);
     }
 }
