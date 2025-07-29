@@ -39,8 +39,11 @@ public class PixWebHookController {
             txid = pixNode.get("txid").asText();
             paymentService.endOrderPayment(txid);
         } else {
+            String status = pixNode.get("status").asText();
             String e2eId = pixNode.get("endToEndId").asText();
-            paymentService.clearPendingPayment(e2eId);
+            if (status.equals("REALIZADO")) {
+                paymentService.clearPendingPayment(e2eId);
+            }
         }
 
         return ResponseEntity.ok("200");
